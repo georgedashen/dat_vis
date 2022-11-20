@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DSAA 5024 - Assignment 4</title>
+	<h1>DSAA 5024 - Assignment 4</h1>
+</head>
+
+<p>
+	Student ID: 50005220 <br />
+	Name: zhuoyang CHEN
+</p>
+
+<body>
+
+<script src="https://d3js.org/d3.v4.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js"></script>
+
+<p>
+    China map display. <br /><br />
+</p>
+
+<div id="map"></div>
+<script>	
+	let vp = {width: 1000, height: 1000};
+    let margin = {top: 60, right: 100, bottom: 100, left: 100};
+
+    var projection = d3.geo.mercator()
+    .center([107, 31])
+    .scale(850)
+    .translate([vp.width/2, vp.height/2]);
+	
+	var path = d3.geo.path()
+    .projection(projection);
+	
+	var svg = d3.select("#map").append("svg").attr("width", 1000).attr("height",1000)
+	
+	d3.json("https://raw.githubusercontent.com/georgedashen/dat_vis/main/zh-mainland-provinces.topo.json", function(error, root) {
+
+    if (error) return console.error(error);
+    console.log(root.features);
+
+    svg.selectAll("path")
+        .data( root.features )
+        .enter()
+        .append("path")
+        .attr("stroke","#000")
+        .attr("stroke-width",1)
+        .attr("fill", function(d,i){
+            return color(i);
+        })
+        .attr("d", path )   //使用地理路径生成器
+        .on("mouseover",function(d,i){
+                    d3.select(this)
+                       .attr("fill","yellow");
+                })
+                .on("mouseout",function(d,i){
+                    d3.select(this)
+                       .attr("fill",color(i));
+                });
+});
+
+	
+</script>	
+
+</body>
+</html>

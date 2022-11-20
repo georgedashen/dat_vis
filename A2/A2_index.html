@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DSAA 5024 - Assignment 2</title>
+</head>
+
+<p>
+	Student ID: 50005220 <br />
+	Name: zhuoyang CHEN
+</p>
+
+<body>
+
+
+<p>
+    This is a scatterplot of data from JHU covid-19 data. <br /><br />
+</p>
+
+<div class="container" id="scatterplot"></div>
+
+<script src="https://d3js.org/d3.v4.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js"></script>
+
+<script>
+	d3.csv('https://raw.githubusercontent.com/632926551/data_vis/main/covid19_processed.csv', function(data) {
+	//data = d3.csv("https://raw.githubusercontent.com/owid/covid-19-data/master/public/data/jhu/full_data.csv")
+	//data = d3.csv("https://raw.githubusercontent.com/632926551/data_vis/main/full_data.txt")
+	//data = d3.csv("https://github.com/632926551/data_vis/blob/main/full_data.txt")
+	
+    let vp = {width: 600, height: 500};
+    let margin = {top: 60, right: 60, bottom: 60, left: 100};
+
+    // append the svg object to the body of the page
+    var svg = d3.select("#scatterplot").append("svg")
+        .attr("width", vp.width + margin.left + margin.right)
+        .attr("height", vp.height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform","translate(" + margin.left + "," + margin.top + ")");
+	
+	// Add X axis
+	var x = d3.scaleLinear()
+		.domain([0, 100000000]) // change this
+		.range([ 0, vp.width ]);
+	svg.append("g")
+		.attr("transform", "translate(0," + vp.height + ")")
+		.call(d3.axisBottom(x));
+	
+	// Add Y axis
+	var y = d3.scaleLinear()
+		.domain([0, 1200000]) // change this
+		.range([ vp.height, 0]); 
+	svg.append("g")
+		.call(d3.axisLeft(y));
+	
+	//Get current date
+	const formatTime = d3.timeFormat("%Y-%m-%d")
+	Now = new Date
+	today = formatTime(new Date)
+	yesterday = d3.timeDay.offset(Now, -1)
+	yesterday = formatTime(yesterday)
+	
+	// Add dots
+	svg.append('g')
+		.selectAll("dot")
+		.data(data)
+		.enter()
+		.append("circle")
+		//.attr("class", function (d) { return "dot " + d.Species } )
+		.attr("cx", function (d) { return x(d.total_cases); } )
+		.attr("cy", function (d) { return y(d.total_deaths); } )
+		.attr("r", 2)
+		.style("fill", "green")
+		.on("mouseenter", function(d){
+			d3.select(this).attr("r", 5).style("stroke","black").style("fill","red")
+			svg.append("text")
+			.attr("id", "location")
+			.attr("x", 400)
+			.attr("y", 490)
+			.text("Location: " + d.location)
+			svg.append("text")
+			.attr("id", "total_cases")
+			.attr("x", 400)
+			.attr("y", 460)
+			.text("Total cases: " + d.total_cases)
+			svg.append("text")
+			.attr("id", "total_deaths")
+			.attr("x", 400)
+			.attr("y", 430)
+			.text("Total deaths: " + d.total_deaths)
+			svg.append("text")
+			.attr("id", "rate")
+			.attr("x", 400)
+			.attr("y", 400)
+			.text("case-fatality rate: " + (d.total_deaths / d.total_cases))
+			
+		})
+		.on("mouseout", function(d){
+			d3.select(this).attr("r", 2).style("stroke","none").style("fill","green")
+			d3.select("#location").remove()
+			d3.select("#total_cases").remove()
+			d3.select("#total_deaths").remove()
+			d3.select("#rate").remove()
+		})
+		
+	// // Add X axis label:
+	svg.append("text")
+		.attr("x", vp.width/2 + margin.left-100)
+		.attr("y", vp.height + margin.top - 10)
+		.text("Total cases");
+	
+	
+	// // // Y axis label:
+	svg.append("text")
+		.attr("transform", "rotate(-90)")
+		.attr("y", -margin.left + 20)
+		.attr("x", -margin.top - vp.height/2 + 20)
+		.text("Total deaths")
+			
+})
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DSAA 5024 - Assignment 4</title>
+	<h1>DSAA 5024 - Assignment 4</h1>
+</head>
+
+<p>
+	Student ID: 50005220 <br />
+	Name: zhuoyang CHEN
+</p>
+
+<body>
+
+<script src="https://d3js.org/d3.v4.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js"></script>
+
+<p>
+    This is a visualization of weather information. <br /><br />
+</p>
+
+<div class="slider" width="1600" height="560">
+	<label style="position: absolute; left: 90px">Time: </label>
+	<label style="position: absolute; left: 170px">7/22/2021 12:00</label>
+	<input type="range" min="1" max="23" value="1" step="1" id="timeSlider" style="position: absolute; width: 50%; left: 300px">
+	<label style="position: absolute; left: 1080px">7/26/2021 04:00</label><br><br>
+</div>
+
+<div id="heatmap" width="1600" height="560"></div>
+
+<div width="1600" height="200">
+	<label style="position: absolute; left: 205px; top: 803px">Temperature</label>
+	<input type="radio" name="measure" value="tem" style="position: absolute; left: 300px;" checked>
+	<label style="position: absolute; left: 430px; top: 803px">Humidity</label>
+	<input type="radio" name="measure" value="rhu" style="position: absolute; left: 500px"><br><br>
+</div>
+<div id="curve" width="1000" height="300"></div>
+<div id="scatterplot" width="1500" height="500"></div>
+
+<script>	
+	let vp = {width: 1200, height: 400};
+    let margin = {top: 60, right: 100, bottom: 100, left: 100};
+
+    // append the svg object to the body of the page 1360 * 560
+    var map = d3.select("#heatmap").append("svg").attr("id", "geomap")
+        .attr("width", vp.width + margin.left + margin.right)
+        .attr("height", vp.height + margin.top + margin.bottom)
+        .append("g").attr("id", "map")
+        .attr("transform","translate(" + margin.left + "," + margin.top + ")");
+	
+	// append legend on the right side of the heatmap, width from 1361 to 1500
+	var legend = d3.select("#geomap").append("g").attr("id", "heatmap_legend")
+		.attr("width", 140).attr("height", 200)
+		.attr("transform", "translate(1330, 370)")
+	
+	// map tem to color
+	var temColor = d3.scaleLinear().domain([10, 32]).range(['yellow','red'])
+	// map rhu to color
+	var rhuColor = d3.scaleLinear().domain([0, 100]).range(['white','blue'])
+	
+	// map tem to legend
+	var temLine = d3.scaleLinear().domain([10,32]).range([0,200])
+	//map rhu to legend
+	var rhuLine = d3.scaleLinear().domain([0,100]).range([0,200])
+	
+	// map slider value to date-time
+	var getDate
+	var getTime
+	d3.csv('https://raw.githubusercontent.com/georgedashen/dat_vis/main/DateTime.csv', function(DateTime){
+		getDate = d3.scaleOrdinal().domain(d3.range(1,24)).range(DateTime.map(d => d.date));
+		getTime = d3.scaleOrdinal().domain(d3.range(1,24)).range(DateTime.map(d => d.time));
+	})
+	
+	
+	// Add Y axis
+	var y = d3.scaleLinear()
+		.domain([33.1, 33.9]) // change this
+		.range([vp.height, 0]);
+	
+	map.append("g")
+		.call(d3.axisLeft(y).tickSize(-vp.width).ticks(16))
+		.selectAll('text')
+		.style("text-anchor", "end")
+		.attr("dx", "-.5em")
+        .attr("dy", "1.7em")
+	
+	// Add X axis
+	var x = d3.scaleLinear()
+		.domain([109.05, 112.05]) // change this
+		.range([0, vp.width]); 
+	
+	map.append("g")
+		.attr("transform", "translate(0," + vp.height + ")")
+		.call(d3.axisBottom(x).tickSize(-vp.height).ticks(56))
+		.selectAll('text')
+		.style("text-anchor", "end")
+        .attr("dx", "-.5em")
+        .attr("dy", "1.6em")
+        .attr("transform", "rotate(-65)")
+	
+	map.selectAll(".domain").remove()
+	
+	// Add outer border
+	map.append("rect")
+    .attr("x",0)
+    .attr("y",0)
+    .attr("height", vp.height)
+    .attr("width", vp.width)
+	.attr("fill", "none")
+    .style("stroke", "black")
+	
+	 // Customization
+	map.selectAll(".tick line").attr("stroke", "#EBEBEB")
+	
+	
+	var measure = d3.select('input[name="measure"]:checked').node().value
+	d3.csv('https://raw.githubusercontent.com/georgedashen/dat_vis/main/weather_combined.csv', function(data) {		
+	var date = getDate(1)
+	var time = getTime(1)
+	fdata = data.filter(function(d) { return d.date == date && d.time == time})
+	
+	//text show when mouse over	
+	var tooltip = d3.select("#heatmap")
+		.append("div")
+		.style("opacity", 0)
+		.attr("class", "tooltip")
+		.style("background-color", "white")
+		.style("border", "solid")
+		.style("border-width", "2px")
+		.style("border-radius", "2px") //conner shape
+		.style("padding", "5px") //how large
+		.style("position", "absolute")
+	
+	//moving line
+	var movingLine = legend.append('line').attr("id", "moveline")
+		.style("stroke", "black")
+		.style("stroke-width", 1)
+		.style("opacity", 0)
+		.attr("transform", "rotate(-90)")
+	//click line
+	var clickLine = legend.append('line').attr("id", "clickline")
+		.style("stroke", "black")
+		.style("stroke-width", 3)
+		.style("opacity", 0)
+		.attr("transform", "rotate(-90)")
+	
+	// whether something has been selected
+	var clicked = false;
+	
+	var mouseover = function(d) {
+			d3.select(this).style("stroke","black").style("stroke-width", 1)
+			tooltip
+			.style("opacity", 1)
+			map.append("text")
+			.attr("id", "location")
+			.attr("x", 0)
+			.attr("y", -10)
+			.text("Location: (" + d3.format(".2f")(d.lat) + ", " + d3.format(".2f")(d.lng) + ")")
+			map.append("text")
+			.attr("id", "temText")
+			.attr("x", 200)
+			.attr("y", -10)
+			.text("Temperature: " + d3.format(".1f")(d.tem) + "℃")
+			map.append("text")
+			.attr("id", "rhuText")
+			.attr("x", 370)
+			.attr("y", -10)
+			.text("Humidity: " + d3.format(".1f")(d.rhu) + "%")
+			map.append("text")
+			.attr("id", "wndText")
+			.attr("x", 520)
+			.attr("y", -10)
+			.text("Wind: " + d3.format(".1f")(d.wnd))
+			movingLine.style("opacity", 1)
+			.attr("x1", measure == "tem" ? temLine(d.tem) : rhuLine(d.rhu))
+			.attr("y1", 0)
+			.attr("x2", measure == "tem" ? temLine(d.tem) : rhuLine(d.rhu))
+			.attr("y2", 30);
+		}
+		
+	var mousemove = function(d) {
+			tooltip
+			.html("T: " + d3.format(".1f")(d.tem) + "℃ H: " + d3.format(".1f")(d.rhu) + "% W: " + d3.format(".0f")(d.wnd) + "<br>Pos: (" + d3.format(".2f")(d.lat) + ", " + d3.format(".2f")(d.lng) + ")")
+			.style("left", (d3.mouse(this)[0]) + "px")
+			.style("top", (d3.mouse(this)[1] + 230) + "px")
+		}
+	
+	var mouseleave = function(d){
+			if(!d3.select(this).classed("selected")) d3.select(this).style("stroke","none")
+			tooltip.style("opacity", 0)
+			d3.select("#temText").remove()
+			d3.select("#location").remove()	
+			d3.select("#rhuText").remove()
+			d3.select("#wndText").remove()
+			movingLine.style("opacity", 0)
+		}
+	
+	var click = function(d){
+			if(clicked && !d3.select(this).classed("selected")) {
+				d3.selectAll(".ClickText").remove()
+				d3.selectAll("#map .location").style('stroke', 'none').classed("selected",false)
+				d3.select(this).style('stroke', 'black').style("stroke-width", 2).classed("selected",true)
+				map.append("text")
+				.attr("class", "ClickText")
+				.attr("x", 670)
+				.attr("y", -10)
+				.text("Location: (" + d3.format(".2f")(d.lat) + ", " + d3.format(".2f")(d.lng) + ")")
+				map.append("text")
+				.attr("class", "ClickText")
+				.attr("x", 870)
+				.attr("y", -10)
+				.text("Temperature: " + d3.format(".1f")(d.tem) + "℃")
+				map.append("text")
+				.attr("class", "ClickText")
+				.attr("x", 1040)
+				.attr("y", -10)
+				.text("Humidity: " + d3.format(".1f")(d.rhu) + "%")
+				map.append("text")
+				.attr("class", "ClickText")
+				.attr("x", 1190)
+				.attr("y", -10)
+				.text("Wind: " + d3.format(".1f")(d.wnd))
+				clickLine.style("opacity", 1)
+				.attr("x1", measure == "tem" ? temLine(d.tem) : rhuLine(d.rhu))
+				.attr("y1", 0)
+				.attr("x2", measure == "tem" ? temLine(d.tem) : rhuLine(d.rhu))
+				.attr("y2", 30);
+				updateCurve(d)
+				clicked = true
+			} else if (clicked && d3.select(this).classed("selected")){
+				d3.select(this).style('stroke', 'none').classed("selected",false);
+				d3.selectAll(".ClickText").remove()
+				clickLine.style("opacity", 0)
+				d3.selectAll("#curve_canvas .trend_curve").remove()
+				clicked = false
+			} else {
+				d3.select(this).style('stroke', 'black').style("stroke-width", 2).classed("selected",true)
+				map.append("text")
+				.attr("class", "ClickText")
+				.attr("x", 670)
+				.attr("y", -10)
+				.text("Location: (" + d3.format(".2f")(d.lat) + ", " + d3.format(".2f")(d.lng) + ")")
+				map.append("text")
+				.attr("class", "ClickText")
+				.attr("x", 870)
+				.attr("y", -10)
+				.text("Temperature: " + d3.format(".1f")(d.tem) + "℃")
+				map.append("text")
+				.attr("class", "ClickText")
+				.attr("x", 1040)
+				.attr("y", -10)
+				.text("Humidity: " + d3.format(".1f")(d.rhu) + "%")
+				map.append("text")
+				.attr("class", "ClickText")
+				.attr("x", 1190)
+				.attr("y", -10)
+				.text("Wind: " + d3.format(".1f")(d.wnd))
+				clickLine.style("opacity", 1)
+				.attr("x1", measure == "tem" ? temLine(d.tem) : rhuLine(d.rhu))
+				.attr("y1", 0)
+				.attr("x2", measure == "tem" ? temLine(d.tem) : rhuLine(d.rhu))
+				.attr("y2", 30);
+				updateCurve(d)
+				clicked = true
+			}
+		}
+	
+	// draw geo tem heatmap
+	//var date = d3.max(fdata, function(d) { return d.date })
+	//var time = d3.max(fdata, function(d) { return d.time })
+	
+	map.append("g").selectAll("dot")
+		.data(fdata).enter().append("rect").attr("class", "location")
+		.attr("y", function(d) { return y(d.lat) })
+		.attr("x", function(d) { return x(d.lng) })
+		.attr("width", x(0.049)-x(0))
+		.attr("height", y(0)-y(0.049))
+		.style("fill", d => measure == "tem" ? temColor(d.tem) : rhuColor(d.rhu) )
+		.style("stroke", "none")
+		.on("mouseover", mouseover)
+		.on("mousemove", mousemove)
+		.on("mouseleave", mouseleave)
+		.on("click", click)
+	
+	map.append("text").attr("id", "DateTime")
+		.attr("x", 600)
+		.attr("y", -40)
+		.attr("text-anchor", "left")
+		.style("font-size", "22px")
+		.text(`on ${date} ${time}`);
+	
+	function updateMap(data) {
+		var date = getDate(d3.select("#timeSlider").node().value)
+		var time = getTime(d3.select("#timeSlider").node().value)
+		fdata = data.filter(function(d) { return d.date == date && d.time == time})
+		
+		d3.selectAll(".ClickText").remove()
+		d3.selectAll("#map .location").style('stroke', 'none').classed("selected",false)
+		d3.selectAll("#map .location").remove()
+		d3.selectAll("#curve_canvas .trend_curve").remove()
+		clickLine.style("opacity", 0)
+		clicked = false
+		
+		map.append("g").selectAll("dot")
+		.data(fdata).enter().append("rect").attr("class", "location")
+		.attr("y", function(d) { return y(d.lat) })
+		.attr("x", function(d) { return x(d.lng) })
+		.attr("width", x(0.049)-x(0))
+		.attr("height", y(0)-y(0.049))
+		.style("fill", d => measure == "tem" ? temColor(d.tem) : rhuColor(d.rhu) )
+		.style("stroke", "none")
+		.on("mouseover", mouseover)
+		.on("mousemove", mousemove)
+		.on("mouseleave", mouseleave)
+		.on("click", click)
+		
+		d3.select("#DateTime").text(`on ${date} ${time}`);
+	}
+	
+	
+	d3.select("#timeSlider").on("change", function(){	
+		updateMap(data)
+		d3.select("#curve_canvas .trend_curve").remove()
+	})
+	
+	d3.selectAll("input[name='measure']").on("change", function(){
+		measure = this.value
+		updateMap(data)
+		d3.select("#curve_canvas .trend_curve").remove()
+		d3.selectAll("#heatmap_legend text").remove()
+		var newGradient = defs.append("linearGradient")
+		.attr("id", "new-gradient")
+		newGradient.append("stop")
+		.attr("offset", 0)
+		.attr("stop-color", "white")
+		newGradient.append("stop")
+		.attr("offset", 1)
+		.attr("stop-color", "blue")
+		
+		d3.select("#legend_color")
+		.style("fill", measure == "tem"? "url(#linear-gradient)" : "url(#new-gradient)")
+
+		if(measure == "tem"){
+			legend.append("text").attr("x", 5).attr("y",20).text("10").style("font-size", "15px").attr("alignment-baseline","middle")
+			legend.append("text").attr("x", 5).attr("y",-220).text("32").style("font-size", "15px").attr("alignment-baseline","middle")
+			legend.append("text").attr("x", 0).attr("y",-250).text("T(℃)").style("font-size", "15px").attr("alignment-baseline","middle")
+		} else {
+			legend.append("text").attr("x", 10).attr("y",20).text("0").style("font-size", "15px").attr("alignment-baseline","middle")
+			legend.append("text").attr("x", 0).attr("y",-220).text("100").style("font-size", "15px").attr("alignment-baseline","middle")
+			legend.append("text").attr("x", 0).attr("y",-250).text("H(%)").style("font-size", "15px").attr("alignment-baseline","middle")
+		
+		}
+	})
+	
+	// temperature trend line
+	var temtrend = d3.select("#curve").append("svg").attr("id", "curve_canvas")
+        .attr("width", 1600) //left 60, right 0
+        .attr("height", 300) //top 50, bottom 50
+        .append("g").attr("id", "temtrend")
+        .attr("transform","translate(" + 60 + "," + 50 + ")")
+		
+	ddata = data.filter(d => d.lat == 33.75 && d.lng == 109.15)
+	
+	var temx = d3.scaleLinear()
+      .domain([1,23])
+      .range([ 0, 400 ]);
+	temtrend.append("g")
+      .attr("transform", "translate(0," + 200 + ")")
+      .call(d3.axisBottom(temx)) 
+	
+	var temy = d3.scaleLinear()
+      .domain([0, 35])
+      .range([ 200, 0 ]);
+	temtrend.append("g")
+      .call(d3.axisLeft(temy));
+	
+	temtrend.append("path").attr("id", "temtrend_curve").attr("class","trend_curve").datum(ddata).attr("stroke","steelblue").attr("stroke-width",2)
+	.attr("fill", "none")
+	.attr("d", d3.line()
+        .x(function(d,i) { return temx(i+1) })
+        .y(function(d) { return temy(d.tem) })
+	)
+	
+	temtrend.append("text").attr("x",170).attr("y",-20).text("Temperature")
+	
+	// humidity trend line
+	var rhutrend = d3.select("#curve_canvas")
+        .append("g").attr("id", "rhutrend")
+        .attr("transform","translate(" + 520 + "," + 50 + ")")
+		
+	var rhux = d3.scaleLinear()
+      .domain([1,23])
+      .range([ 0, 400 ]);
+	rhutrend.append("g")
+      .attr("transform", "translate(0," + 200 + ")")
+      .call(d3.axisBottom(rhux)) 
+	
+	var rhuy = d3.scaleLinear()
+      .domain([0, 100])
+      .range([ 200, 0 ]);
+	rhutrend.append("g")
+      .call(d3.axisLeft(rhuy));
+	
+	rhutrend.append("path").attr("id", "rhutrend_curve").attr("class","trend_curve").datum(ddata).attr("stroke","steelblue").attr("stroke-width",2)
+	.attr("fill", "none")
+	.attr("d", d3.line()
+        .x(function(d,i) { return rhux(i+1) })
+        .y(function(d) { return rhuy(d.rhu) })
+	)
+	
+	rhutrend.append("text").attr("x",170).attr("y",-20).text("Humidity")
+	
+	// wind trend line
+	var wndtrend = d3.select("#curve_canvas")
+        .append("g").attr("id", "wndtrend")
+        .attr("transform","translate(" + 980 + "," + 50 + ")")
+	
+	var wndx = d3.scaleLinear()
+      .domain([1,23])
+      .range([ 0, 400 ]);
+	wndtrend.append("g")
+      .attr("transform", "translate(0," + 200 + ")")
+      .call(d3.axisBottom(wndx)) 
+	
+	var wndy = d3.scaleLinear()
+      .domain([0, 360])
+      .range([ 200, 0 ]);
+	wndtrend.append("g")
+      .call(d3.axisLeft(wndy));
+	
+	wndtrend.append("path").attr("id", "wndtrend_curve").attr("class","trend_curve").datum(ddata).attr("stroke","steelblue").attr("stroke-width",2)
+	.attr("fill", "none")
+	.attr("d", d3.line()
+        .x(function(d,i) { return wndx(i+1) })
+        .y(function(d) { return wndy(d.wnd) })
+	)
+	
+	wndtrend.append("text").attr("x",170).attr("y",-20).text("Wind")
+	
+	var updateCurve = function(d){
+		d3.selectAll("#curve_canvas .trend_curve").remove()
+		var lat = d.lat
+		console.log(d.lat)
+		var lng = d.lng
+		ddata = data.filter(d => d.lat == lat && d.lng == lng)
+		
+		temtrend.append("path").attr("id", "temtrend_curve").attr("class","trend_curve").datum(ddata).attr("stroke","steelblue").attr("stroke-width",2)
+		.attr("fill", "none")
+		.attr("d", d3.line()
+			.x(function(d,i) { return temx(i+1) })
+			.y(function(d) { return temy(d.tem) })
+		)
+		
+		rhutrend.append("path").attr("id", "rhutrend_curve").attr("class","trend_curve").datum(ddata).attr("stroke","steelblue").attr("stroke-width",2)
+		.attr("fill", "none")
+		.attr("d", d3.line()
+			.x(function(d,i) { return rhux(i+1) })
+			.y(function(d) { return rhuy(d.rhu) })
+		)
+		
+		wndtrend.append("path").attr("id", "wndtrend_curve").attr("class","trend_curve").datum(ddata).attr("stroke","steelblue").attr("stroke-width",2)
+		.attr("fill", "none")
+		.attr("d", d3.line()
+			.x(function(d,i) { return wndx(i+1) })
+			.y(function(d) { return wndy(d.wnd) })
+		)
+	}
+	
+	//scatterplot
+	d3.select("#scatterplot").append("svg").attr("id", "scatter_canvas").attr("width", 1500).attr("height", 500)
+	var timeColor = d3.scaleOrdinal().domain(["0:00:00", "4:00:00", "8:00:00", "12:00:00", "16:00:00", "20:00:00"]).range(["black","blue","yellow","red","orange","navy"])
+		
+	var rhuX = d3.scaleLinear().domain([45,105]).range([ 0, 300 ]);
+	var rhuY = d3.scaleLinear().domain([45,105]).range([ 300, 0 ]);
+	
+	var temX = d3.scaleLinear().domain([10, 32]).range([ 0, 300 ]);
+	
+	var wndY = d3.scaleLinear().domain([0, 360]).range([ 300, 0 ]);
+	
+	var tem_rhu = d3.select("#scatter_canvas").append("g").attr("id", "tem_rhu").attr("transform", "translate(60,100)")
+	tem_rhu.append("g")
+      .attr("transform", "translate(0," + 300 + ")")
+      .call(d3.axisBottom(temX)) 
+	tem_rhu.append("g")
+      .call(d3.axisLeft(rhuY));
+	tem_rhu.append("text").attr("x", 110).attr("y", 340).text("Temperature(℃)");
+	tem_rhu.append("text").attr("x", -200).attr("y", -40).text("Humidity(%)").attr("transform", "rotate(-90)");
+	tem_rhu.append("g").selectAll("dot").data(data).enter().append("circle").attr("cx", d=>temX(d.tem)).attr("cy", d=>rhuY(d.rhu)).attr("r",3).style("fill", d=>timeColor(d.time)).style("stroke","black")
+	
+	
+	var tem_wnd = d3.select("#scatter_canvas").append("g").attr("id", "tem_wnd").attr("transform", "translate(520,100)")
+	tem_wnd.append("g")
+      .attr("transform", "translate(0," + 300 + ")")
+      .call(d3.axisBottom(temX)) 
+	tem_wnd.append("g")
+      .call(d3.axisLeft(wndY));
+	tem_wnd.append("text").attr("x", 110).attr("y", 340).text("Temperature(℃)");
+	tem_wnd.append("text").attr("x", -180).attr("y", -40).text("Wind").attr("transform", "rotate(-90)");
+	tem_wnd.append("g").selectAll("dot").data(data).enter().append("circle").attr("cx", d=>temX(d.tem)).attr("cy", d=>wndY(d.wnd)).attr("r",3).style("fill", d=>timeColor(d.time)).style("stroke","black")
+	
+		
+	var rhu_wnd = d3.select("#scatter_canvas").append("g").attr("id", "rhu_wnd").attr("transform", "translate(980,100)")
+	rhu_wnd.append("g")
+      .attr("transform", "translate(0," + 300 + ")")
+      .call(d3.axisBottom(rhuX)) 
+	rhu_wnd.append("g")
+      .call(d3.axisLeft(wndY));
+	rhu_wnd.append("text").attr("x", 110).attr("y", 340).text("Humidity(%)");
+	rhu_wnd.append("text").attr("x", -180).attr("y", -40).text("Wind").attr("transform", "rotate(-90)");
+	rhu_wnd.append("g").selectAll("dot").data(data).enter().append("circle").attr("cx", d=>rhuX(d.rhu)).attr("cy", d=>wndY(d.wnd)).attr("r",3).style("fill", d=>timeColor(d.time)).style("stroke","black")
+	
+	var scatterlegend = d3.select("#scatter_canvas").append("g").attr("id", "scatter_legend").attr("transform", "translate(200,485)")
+	scatterlegend.append("g").selectAll("dot").data(["0:00:00", "4:00:00", "8:00:00", "12:00:00", "16:00:00", "20:00:00"]).enter().append("circle")
+		.attr("cx", (d,i)=>i*80).attr("cy", 0).attr("r",10).style("fill", d=>timeColor(d)).style("stroke","black")
+	scatterlegend.append("text").attr("x",15).attr("y",5).text("0:00")
+	scatterlegend.append("text").attr("x",95).attr("y",5).text("4:00")
+	scatterlegend.append("text").attr("x",175).attr("y",5).text("8:00")
+	scatterlegend.append("text").attr("x",255).attr("y",5).text("12:00")
+	scatterlegend.append("text").attr("x",335).attr("y",5).text("16:00")
+	scatterlegend.append("text").attr("x",415).attr("y",5).text("20:00")
+	})
+
+	// Add title to graph
+	map.append("text")
+			.attr("x", 400)
+			.attr("y", -40)
+			.attr("text-anchor", "left")
+			.style("font-size", "22px")
+			.text("A Map of Weather");
+	
+	// X label:
+	map.append("text")
+		.attr("x", vp.width/2 + margin.left - 100)
+		.attr("y", vp.height + margin.top + 20)
+		.text("Longitude");
+	
+	
+	// Y label:
+	map.append("text")
+		.attr("transform", "rotate(-90)")
+		.attr("y", -margin.left + 50)
+		.attr("x", -margin.top - vp.height/2 + 20)
+		.text("Latitude")
+	
+	// add legend
+	var defs = legend.append("defs")
+	var linearGradient = defs.append("linearGradient")
+		.attr("id", "linear-gradient")
+	linearGradient.append("stop")
+		.attr("offset", 0)
+		.attr("stop-color", "yellow")
+	linearGradient.append("stop")
+		.attr("offset", 1)
+		.attr("stop-color", "red")
+	legend.append("rect").attr("id", "legend_color")
+		.attr("x", 0).attr("y", 0)
+		.attr("width", 200).attr("height", 30)
+		.attr("transform", "rotate(-90)")
+		.style("fill", "url(#linear-gradient)")
+		
+	legend.append("text").attr("x", 5).attr("y",20).text("10").style("font-size", "15px").attr("alignment-baseline","middle")
+	legend.append("text").attr("x", 5).attr("y",-220).text("32").style("font-size", "15px").attr("alignment-baseline","middle")
+	legend.append("text").attr("x", 0).attr("y",-250).text("T(℃)").style("font-size", "15px").attr("alignment-baseline","middle")
+	
+</script>	
+
+</body>
+</html>

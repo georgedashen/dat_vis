@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DSAA 5024 - Assignment 1</title>
+</head>
+
+<p>
+	Student ID: 50005220 <br />
+	Name: zhuoyang CHEN
+</p>
+
+<body>
+
+<script>
+    var num_pts = 1000000;//1M,10M,100M
+	var X_bin = 20;
+	var Y_bin = 20;
+</script>
+
+<p>
+    This is a scatterplot of transformed data for random points. <br /><br />
+	Total number of points: <script>document.write(num_pts)</script>  <br />
+	Binning number of x-axis: <script>document.write(X_bin)</script> <br />
+	Binning number of y-axis: <script>document.write(Y_bin)</script>
+</p>
+
+<div class="container" id="scatterplot"></div>
+
+<script src="https://d3js.org/d3.v5.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js"></script>
+
+<script>
+    let vp = {width: 600, height: 500};
+    let margin = {top: 10, right: 30, bottom: 30, left: 60};
+
+    // append the svg object to the body of the page
+    var svg = d3.select("#scatterplot").append("svg")
+        .attr("width", vp.width + margin.left + margin.right)
+        .attr("height", vp.height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform","translate(" + margin.left + "," + margin.top + ")");
+
+    var x = d3.scaleLinear().domain([0, 1]).range([0, vp.width]);
+    var y = d3.scaleLinear().domain([0, 1]).range([vp.height, 0]);
+
+
+    //Generate data points
+    var data = [];
+    for (var i = 1; i <= num_pts; i++) {
+        data.push({x: Math.random(), y: Math.random()});
+    }
+	
+	//Aggregate
+	var mat = math.zeros(X_bin,Y_bin);
+	for (var i = 0; i < num_pts; i++) {
+        mat.set([Math.floor(data[i].x*X_bin), Math.floor(data[i].y*Y_bin)], mat.get([Math.floor(data[i].x*X_bin), Math.floor(data[i].y*Y_bin)]) + 1)
+    }
+	
+	var data2 = [];
+	mat.forEach(function (value, index, matrix) {
+		data2.push({x: index[0], y: index[1], count: value})
+	})
+	
+	MaxCount = -1
+	MinCount = Infinity
+	for(var i = 0; i < X_bin * Y_bin; i++){
+		if(data2[i].count > MaxCount)
+			MaxCount = data2[i].count
+		if(data2[i].count < MinCount)
+			MinCount = data2[i].count
+	}
+	
+    // Add dots
+	let radiusScale = d3.scaleLinear().domain([MinCount,MaxCount]).range([1,Math.min(vp.width/X_bin/2, vp.height/Y_bin/2)])
+    svg.append('g').selectAll("dot")
+        .data(data2).enter()
+        .append("circle")
+		.attr('stroke', 'black')
+		.attr('stroke-width', '1')
+        .attr("cx", function (d,i) {return x(1/X_bin* (d.x+0.5));})
+        .attr("cy", function (d,i) {return y(1/X_bin* (d.y+0.5));})
+        .attr("r", function(d) {return radiusScale(d.count)})
+        .style("fill", "#00EE00");
+
+    // Add X axis
+    svg.append("g").attr("transform", "translate(0," + vp.height + ")")
+    .call(d3.axisBottom(x));
+
+    // Add Y axis
+    svg.append("g").call(d3.axisLeft(y));
+</script>
+
+<div class="container" id="legend"></div>
+<script>
+	//Legend
+	var data3 = [MinCount, MinCount+(MaxCount-MinCount)/4, MinCount+(MaxCount-MinCount)/2, MinCount+(MaxCount-MinCount)*3/4, MaxCount]
+	data3 = data3.map(function(each_element){return Math.round(each_element)})
+	var svg2 = d3.select("#legend").append("svg")
+		.attr("width", 1000 + 100 + margin.right)
+        .attr("height", 50 + 50 + margin.bottom)
+		//.append('g')
+		//.attr("transform","translate(" + margin.left + "," + margin.top + ")");
+	
+	svg2.selectAll('circle').data(data3).enter()
+		.append('circle')
+		.attr('stroke', 'black')
+		.attr('stroke-width', '1')
+		.attr("cx", function(d,i) {return i*80+100})
+		.attr("cy", 40)
+		.attr("r", function(d) {return radiusScale(d)})
+		.style("fill", "#00EE00");
+	
+	svg2.append("text").attr("x", 90).attr("y", 80).text(data3[0]).style("font-size", "15px").attr("alignment-baseline","middle")
+	svg2.append("text").attr("x", 170).attr("y", 80).text(data3[1]).style("font-size", "15px").attr("alignment-baseline","middle")
+	svg2.append("text").attr("x", 250).attr("y", 80).text(data3[2]).style("font-size", "15px").attr("alignment-baseline","middle")
+	svg2.append("text").attr("x", 330).attr("y", 80).text(data3[3]).style("font-size", "15px").attr("alignment-baseline","middle")
+	svg2.append("text").attr("x", 410).attr("y", 80).text(data3[4]).style("font-size", "15px").attr("alignment-baseline","middle")
+		
+
+</script>
+
+</body>
+</html>

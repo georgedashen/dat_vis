@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>DSAA 5024 - Assignment 2</title>
+</head>
+
+<p>
+	Student ID: 50005220 <br />
+	Name: zhuoyang CHEN
+</p>
+
+<body>
+
+
+<p>
+    This is a scatterplot of data from JHU covid-19 data. <br /><br />
+</p>
+
+<div class="container" id="scatterplot"></div>
+
+<script src="https://d3js.org/d3.v4.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/3.3.0/math.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3-legend/2.25.6/d3-legend.min.js"></script>
+
+<script>
+	d3.csv('https://raw.githubusercontent.com/georgedashen/dat_vis/main/covid_addContinent.csv', function(data) {	
+    let vp = {width: 600, height: 500};
+    let margin = {top: 60, right: 60, bottom: 60, left: 100};
+
+    // append the svg object to the body of the page
+    var svg = d3.select("#scatterplot").append("svg")
+        .attr("width", vp.width + margin.left + margin.right)
+        .attr("height", vp.height + margin.top + margin.bottom)
+        .append("g")
+        .attr("transform","translate(" + margin.left + "," + margin.top + ")");
+	
+	// Add X axis
+	var x = d3.scaleLog()
+		.domain([0.1, 100000000]) // change this
+		.range([ 0, vp.width ]);
+	
+	svg.append("g")
+		.attr("transform", "translate(0," + vp.height + ")")
+		.call(d3.axisBottom(x));
+	
+	// Add Y axis
+	var y = d3.scaleLog()
+		.domain([0.9, 1200000]) // change this
+		.range([ vp.height, 0]); 
+	svg.append("g")
+		.call(d3.axisLeft(y));
+	
+	var continent = ["Asia", "Africa", "Oceania", "Europe", "North America", "South America"]
+	var color = ["#7fc97f", "#beaed4", "#fdc086", "#ffff99", "#386cb0", "#f0027f"]
+
+	var MapColor = d3.scaleOrdinal().domain(continent).range(color)
+	
+	let radiusScale = d3.scaleLinear().domain([0,100000]).range([3,30])
+	
+	// Add dots
+	svg.append('g')
+		.selectAll("dot")
+		.data(data)
+		.enter()
+		.append("circle")
+		.attr("cx", function (d) { return x(d.total_cases); } )
+		.attr("cy", function (d) { return y(d.total_deaths); } )
+		.attr("r", function(d){return radiusScale(d.new_cases)}).style("stroke","black").style("stroke-width", 1)
+		.style("fill", function(d){return MapColor(d.continent)}).style("opacity",1)
+		.on("mouseenter", function(d){
+			d3.select("#scatterplot").selectAll("circle").style("opacity",0.3)
+			d3.select(this).attr("r", function(d){return radiusScale(d.new_cases)}).style("stroke","black").style("stroke-width", 2)
+			.style("fill", function(d){return MapColor(d.continent)}).style("opacity",1)
+			svg.append("text")
+			.attr("id", "location")
+			.attr("x", 420)
+			.attr("y", 490)
+			.text("Location: " + d.location)
+			svg.append("text")
+			.attr("id", "total_cases")
+			.attr("x", 420)
+			.attr("y", 460)
+			.text("Total cases: " + d.total_cases)
+			svg.append("text")
+			.attr("id", "total_deaths")
+			.attr("x", 420)
+			.attr("y", 430)
+			.text("Total deaths: " + d.total_deaths)
+			svg.append("text")
+			.attr("id", "rate")
+			.attr("x", 420)
+			.attr("y", 400)
+			.text("case-fatality rate: " + (d.total_deaths / d.total_cases))
+			svg.append("text")
+			.attr("id", "new_cases")
+			.attr("x", 50)
+			.attr("y", 50)
+			.text("New cases: " + d.new_cases)
+			
+		})
+		.on("mouseout", function(d){
+			d3.select("#scatterplot").selectAll("circle").style("opacity",1)
+			d3.select(this).attr("r", function(d){return radiusScale(d.new_cases)}).style("stroke","black").style("stroke-width", 1)
+			.style("fill",function(d){return MapColor(d.continent)})
+			d3.select("#location").remove()
+			d3.select("#total_cases").remove()
+			d3.select("#total_deaths").remove()
+			d3.select("#rate").remove()
+			d3.select("#new_cases").remove()
+		})
+		
+	// // Add X axis label:
+	svg.append("text")
+		.attr("x", vp.width/2 + margin.left-100)
+		.attr("y", vp.height + margin.top - 10)
+		.text("Total cases");
+	
+	
+	// // // Y axis label:
+	svg.append("text")
+		.attr("transform", "rotate(-90)")
+		.attr("y", -margin.left + 20)
+		.attr("x", -margin.top - vp.height/2 + 20)
+		.text("Total deaths")
+			
+})
+
+</script>
+
+
+<svg id="legend_newCase" width="1000" height="50"></svg>
+<script>		
+	var legend1 = d3.select("#legend_newCase")
+	let radiusScale = d3.scaleLog().domain([0.1,100000]).range([1,15])
+	var data2 = [0.1, 100, 1000, 10000, 100000]
+	
+	legend1.selectAll('circle').data(data2).enter()
+			.append('circle')
+			.attr('stroke', 'black')
+			.attr('stroke-width', '1')
+			.attr("cx", function(d,i) {return i*80+200})
+			.attr("cy", 25)
+			.attr("r", function(d) {return radiusScale(d)})
+			.style("fill", "white");
+
+	legend1.append("text").attr("x", 80).attr("y", 25).text("new_cases:").style("font-size", "15px").attr("alignment-baseline","middle")
+	legend1.append("text").attr("x", 230).attr("y", 25).text("0").style("font-size", "15px").attr("alignment-baseline","middle")
+	legend1.append("text").attr("x", 300).attr("y", 25).text("100").style("font-size", "15px").attr("alignment-baseline","middle")
+	legend1.append("text").attr("x", 380).attr("y", 25).text("1000").style("font-size", "15px").attr("alignment-baseline","middle")
+	legend1.append("text").attr("x", 455).attr("y", 25).text("10000").style("font-size", "15px").attr("alignment-baseline","middle")
+	legend1.append("text").attr("x", 540).attr("y", 25).text("100000").style("font-size", "15px").attr("alignment-baseline","middle")
+</script>
+
+
+<svg id="legend_continent" width="1000" height="60"></svg>
+<script>		
+	var legend2 = d3.select("#legend_continent")
+	var continent = ["Asia", "Africa", "Oceania", "Europe", "North America", "South America"]
+	var color = ["#7fc97f", "#beaed4", "#fdc086", "#ffff99", "#386cb0", "#f0027f"]
+	var MapColor = d3.scaleOrdinal().domain(continent).range(color)
+	
+	legend2.selectAll('circle').data(continent).enter()
+			.append('circle')
+			.attr('stroke', 'black')
+			.attr('stroke-width', '1')
+			.attr("cx", function(d,i) {return i*80+200})
+			.attr("cy", 16)
+			.attr("r", 15)
+			.style("fill", function(d){return MapColor(d)});
+
+	legend2.append("text").attr("x", 80).attr("y", 16).text("Continent:").style("font-size", "15px").attr("alignment-baseline","middle")
+	legend2.append("text").attr("x", 185).attr("y", 50).text("Asia").style("font-size", "15px").attr("alignment-baseline","middle")
+	legend2.append("text").attr("x", 260).attr("y", 50).text("Africa").style("font-size", "15px").attr("alignment-baseline","middle")
+	legend2.append("text").attr("x", 335).attr("y", 50).text("Oceania").style("font-size", "15px").attr("alignment-baseline","middle")
+	legend2.append("text").attr("x", 415).attr("y", 50).text("Europe").style("font-size", "15px").attr("alignment-baseline","middle")
+	legend2.append("text").attr("x", 470).attr("y", 50).text("North America").style("font-size", "15px").attr("alignment-baseline","middle")
+	legend2.append("text").attr("x", 580).attr("y", 50).text("South America").style("font-size", "15px").attr("alignment-baseline","middle")
+</script>
+
+</body>
+</html>

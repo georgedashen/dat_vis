@@ -1,0 +1,5 @@
+Both A3_newCase and A3_location are produced using d3.js, so you can open it by directly clicking the .html files.
+
+A3_newCase is the coding task 1 that colors are assigned based on new_cases.
+
+A3_location is the coding task 2/3 that assigning colors based on locations, different size based on new_cases.

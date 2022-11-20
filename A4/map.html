@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<head>
+    <title>Shenzhen Map</title>
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+    <script src="https://d3js.org/d3-selection-multi.v1.min.js"></script>
+
+
+    <script src="https://unpkg.com/topojson@3.0.0"></script>
+</head>
+
+<body>
+    <svg id="map" width ="500" height = "960"></svg>
+
+    <script>
+        var margin = {top: 20, left: 20, right: 20, bottom: 20},
+            width = 500 - margin.left - margin.right,
+            height = 960 - margin.top - margin.bottom;
+
+        var svg = d3.select("#map")
+                    .append("svg")
+                    .attr("width", width + margin.left + margin.right)
+                    .attr("height", height + margin.top + margin.bottom)
+                    .append("g")
+                    .attr("transform", "translate(" + margin.left + "," + margin.top +")");
+
+        d3.queue()
+            .defer(d3.json, "https://raw.githubusercontent.com/georgedashen/dat_vis/main/shenzhenroads.json")
+            .await(ready);
+
+        function ready(error, data){
+            var ShenzhenRoads = topojson.feature(data, {
+                type: "GeometryCollection",
+                geometries: data.objects.shenzhen_china_osm_roads.geometries
+            });
+
+            var projection = d3.geoMercator()
+                 .center([114, 22.5])
+                 .scale(500000)
+                 .translate([width/2, height/2]);
+            
+            var path = d3.geoPath()
+                .projection(projection);
+
+            svg.selectAll("path")
+               .data(ShenzhenRoads.features)
+                .enter().append("path")
+                    .attr("class", "roads")
+                    .attr("d", path)
+                    .attr("fill", "none")
+                    .attr("stroke", "steelblue");
+        };
+
+
+
+
+    </script>
+</body>
+</html>
